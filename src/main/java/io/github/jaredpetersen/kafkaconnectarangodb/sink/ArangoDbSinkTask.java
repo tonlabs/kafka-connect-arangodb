@@ -62,7 +62,7 @@ public class ArangoDbSinkTask extends SinkTask {
     this.recordConverter = new RecordConverter(jsonConverter, jsonDeserializer, objectMapper);
 
     // Set up the writer
-    this.writer = new Writer(database);
+    this.writer = new Writer(database, config.arangoDbObjectUpsertFieldFilter);
   }
 
   @Override

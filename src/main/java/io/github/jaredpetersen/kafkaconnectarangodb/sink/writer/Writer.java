@@ -16,13 +16,29 @@ public class Writer {
   private enum Operation { REPSERT, DELETE }
 
   private final ArangoDatabase database;
+  private final String filterLatestOnField;
+
+  private static final String UDF_LATEST = "" +
+      "function latest(a, b, field) {\n" +
+      "  'use strict'; \n" +
+      "  if ([typeof a, typeof b, typeof field].some((x) => x === \"undefined\")) { \n" +
+      "      const error = require(\"@arangodb\").errors.ERROR_QUERY_FUNCTION_ARGUMENT_NUMBER_MISMATCH; \n" +
+      "      AQL_WARNING(error.code, require(\"util\").format(error.message, this.name, 3, 3)); \n" +
+      "  }
+      "  if (a[field] > b[field]) {
+      "      return a;
+      "  } else {
+      "      return b;
+      "  }
+      "}";
 
   /**
    * Construct a new Kafka record writer for ArangoDB.
    * @param database ArangoDB database to write to.
    */
-  public Writer(final ArangoDatabase database) {
+  public Writer(final ArangoDatabase database, String condition) {
     this.database = database;
+    this.filterLatestOnField = condition;
   }
 
   /**
@@ -100,7 +116,11 @@ public class Writer {
 
     switch (batchOperation) {
       case REPSERT:
-        repsertBatch(batchCollection, batch);
+	if (this.filterLatestOnField == null || this.filterLatestOnField.isEmpty()) {
+            repsertBatch(batchCollection, batch);
+	} else {
+	    filteredRepsertBatch(batchCollection, batch);
+	}
         break;
       case DELETE:
         deleteBatch(batchCollection, batch);
@@ -144,5 +164,32 @@ public class Writer {
             .overwrite(true)
             .waitForSync(true)
             .silent(true));
+  }
+  /**
+   * Conditional repsert a batch of records to the database.
+   * @param collection Name of the collection to repsert to
+   * @param records Records to repsert
+   */
+  private void repsertBatch(final String collection, final List<ArangoRecord> records) {
+    final List<String> documentValues = records.stream()
+        .map(record -> record.getValue())
+        .collect(Collectors.toList());
+
+    // TODO: Make try-catch for the query. Update the function Only if query fails
+    this.database.createAqlFunction(
+        "CONNECTOR::UDF::LATEST",
+	Writer.UDF_LATEST,
+	new AqlFunctionCreateOptions()
+    );
+
+    this.database.query(
+        "FOR doc IN @@docs UPSERT doc._id UPDATE CONNECTOR::UDF::LATEST(OLD, doc, @@field) IN @@collection",
+	new MapBuilder()
+	    .put("@docs", documentValues)
+	    .put("@collection", collection)
+	    .put("@field", this.filterLatestOnField)
+	    .get(),
+	BaseDocument.class
+    );
   }
 }

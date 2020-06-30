@@ -38,13 +38,21 @@ public class ArangoDbSinkConfig extends AbstractConfig {
   private static final String ARANGODB_DATABASE_NAME_DOC = "ArangoDb database name.";
   public final String arangoDbDatabaseName;
 
+  private static final String ARANGODB_OBJECT_UPGRADE_FIELD = "arangodb.object.upgrade";
+  private static final boolean ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT = "";
+  private static final String ARANGODB_OBJECT_UPGRADE_FIELD_DOC = "Filed to used to decide if upgrade is needed.";
+  public final String arangoDbObjectUpsertFieldFilter;
+  arangodb.object.upgrade
+
   public static final ConfigDef CONFIG_DEF = new ConfigDef()
       .define(ARANGODB_HOST, Type.STRING, Importance.HIGH, ARANGODB_HOST_DOC)
       .define(ARANGODB_PORT, Type.INT, Importance.HIGH, ARANGODB_PORT_DOC)
       .define(ARANGODB_USER, Type.STRING, Importance.HIGH, ARANGODB_USER_DOC)
       .define(ARANGODB_PASSWORD, Type.PASSWORD, ARANGODB_PASSWORD_DEFAULT, Importance.HIGH, ARANGODB_PASSWORD_DOC)
       .define(ARANGODB_USE_SSL, Type.BOOLEAN, ARANGODB_USE_SSL_DEFAULT, Importance.HIGH, ARANGODB_USE_SSL_DOC)
-      .define(ARANGODB_DATABASE_NAME, Type.STRING, Importance.HIGH, ARANGODB_DATABASE_NAME_DOC);
+      .define(ARANGODB_DATABASE_NAME, Type.STRING, Importance.HIGH, ARANGODB_DATABASE_NAME_DOC)
+      .define(ARANGODB_OBJECT_UPGRADE_FIELD, Type.STRING, ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT, Importance.HIGH, ARANGODB_OBJECT_UPGRADE_FIELD_DOC)
+      ;
 
   /**
    * Configuration for ArangoDB Sink.
@@ -61,5 +69,6 @@ public class ArangoDbSinkConfig extends AbstractConfig {
     this.arangoDbPassword = getPassword(ARANGODB_PASSWORD);
     this.arangoDbUseSsl = getBoolean(ARANGODB_USE_SSL);
     this.arangoDbDatabaseName = getString(ARANGODB_DATABASE_NAME);
+    this.arangoDbObjectUpsertFieldFilter = getString(ARANGODB_OBJECT_UPGRADE_FIELD);
   }
 }
