@@ -39,10 +39,9 @@ public class ArangoDbSinkConfig extends AbstractConfig {
   public final String arangoDbDatabaseName;
 
   private static final String ARANGODB_OBJECT_UPGRADE_FIELD = "arangodb.object.upgrade";
-  private static final boolean ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT = "";
+  private static final String ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT = "";
   private static final String ARANGODB_OBJECT_UPGRADE_FIELD_DOC = "Filed to used to decide if upgrade is needed.";
   public final String arangoDbObjectUpsertFieldFilter;
-  arangodb.object.upgrade
 
   public static final ConfigDef CONFIG_DEF = new ConfigDef()
       .define(ARANGODB_HOST, Type.STRING, Importance.HIGH, ARANGODB_HOST_DOC)

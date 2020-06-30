@@ -1,7 +1,10 @@
 package io.github.jaredpetersen.kafkaconnectarangodb.sink.writer;
 
 import com.arangodb.ArangoDatabase;
+import com.arangodb.model.AqlFunctionCreateOptions;
+import com.arangodb.util.MapBuilder;
 import com.arangodb.model.DocumentCreateOptions;
+import com.arangodb.entity.BaseDocument;
 import com.arangodb.model.DocumentDeleteOptions;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,12 +27,12 @@ public class Writer {
       "  if ([typeof a, typeof b, typeof field].some((x) => x === \"undefined\")) { \n" +
       "      const error = require(\"@arangodb\").errors.ERROR_QUERY_FUNCTION_ARGUMENT_NUMBER_MISMATCH; \n" +
       "      AQL_WARNING(error.code, require(\"util\").format(error.message, this.name, 3, 3)); \n" +
-      "  }
-      "  if (a[field] > b[field]) {
-      "      return a;
-      "  } else {
-      "      return b;
-      "  }
+      "  } \n" +
+      "  if (a[field] > b[field]) { \n" +
+      "      return a; \n" +
+      "  } else { \n" +
+      "      return b; \n" +
+      "  } \n" +
       "}";
 
   /**
@@ -170,7 +173,7 @@ public class Writer {
    * @param collection Name of the collection to repsert to
    * @param records Records to repsert
    */
-  private void repsertBatch(final String collection, final List<ArangoRecord> records) {
+  private void filteredRepsertBatch(final String collection, final List<ArangoRecord> records) {
     final List<String> documentValues = records.stream()
         .map(record -> record.getValue())
         .collect(Collectors.toList());
