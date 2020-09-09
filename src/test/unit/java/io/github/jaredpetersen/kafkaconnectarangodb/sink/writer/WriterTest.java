@@ -34,7 +34,7 @@ public class WriterTest {
     when(databaseMock.collection(any())).thenReturn(collectionMock);
 
     // Test system under test
-    final Writer writer = new Writer(databaseMock, null);
+    final Writer writer = new Writer(databaseMock, null, -1);
     writer.write(arangoRecordStubs);
 
     verify(collectionMock).insertDocuments(
@@ -65,7 +65,7 @@ public class WriterTest {
     when(databaseMock.collection(any())).thenReturn(collectionMock);
 
     // Test system under test
-    final Writer writer = new Writer(databaseMock, null);
+    final Writer writer = new Writer(databaseMock, null, -1);
     writer.write(arangoRecordStubs);
 
     InOrder inOrder = Mockito.inOrder(collectionMock);
@@ -111,7 +111,7 @@ public class WriterTest {
     when(databaseMock.collection(any())).thenReturn(collectionMock);
 
     // Test system under test
-    final Writer writer = new Writer(databaseMock, null);
+    final Writer writer = new Writer(databaseMock, null, -1);
     writer.write(arangoRecordStubs);
 
     verify(collectionMock).deleteDocuments(
@@ -142,7 +142,7 @@ public class WriterTest {
     when(databaseMock.collection(any())).thenReturn(collectionMock);
 
     // Test system under test
-    final Writer writer = new Writer(databaseMock, null);
+    final Writer writer = new Writer(databaseMock, null, -1);
     writer.write(arangoRecordStubs);
 
     InOrder inOrder = Mockito.inOrder(collectionMock);
@@ -190,7 +190,7 @@ public class WriterTest {
     when(databaseMock.collection(any())).thenReturn(collectionMock);
 
     // Test system under test
-    final Writer writer = new Writer(databaseMock, null);
+    final Writer writer = new Writer(databaseMock, null, -1);
     writer.write(arangoRecordStubs);
 
     InOrder inOrder = Mockito.inOrder(collectionMock);

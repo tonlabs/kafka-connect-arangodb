@@ -10,24 +10,30 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 /**
  * Writer for writing Kafka Connect records to ArangoDB.
  */
 public class Writer {
+  public static final int UNLIMITED_BATCH_SIZE = -1;
   private enum Operation { REPSERT, DELETE }
+
+  private static final Logger LOG = LoggerFactory.getLogger(Writer.class);
 
   private final ArangoDatabase database;
   private final String filterLatestOnField;
+  private final int maxBatchSize;
 
   private static final String UDF_LATEST = "" +
       "function latest(a, b, field) {\n" +
       "  'use strict'; \n" +
-      "  if ([typeof a, typeof b, typeof field].some((x) => x === \"undefined\")) { \n" +
-      "      const error = require(\"@arangodb\").errors.ERROR_QUERY_FUNCTION_ARGUMENT_NUMBER_MISMATCH; \n" +
-      "      AQL_WARNING(error.code, require(\"util\").format(error.message, this.name, 3, 3)); \n" +
-      "  } \n" +
+      "  if (a == null) { return b; } \n" +
       "  if (a[field] > b[field]) { \n" +
       "      return a; \n" +
       "  } else { \n" +
@@ -39,9 +45,10 @@ public class Writer {
    * Construct a new Kafka record writer for ArangoDB.
    * @param database ArangoDB database to write to.
    */
-  public Writer(final ArangoDatabase database, String condition) {
+  public Writer(final ArangoDatabase database, String condition, int maxBatchSize) {
     this.database = database;
     this.filterLatestOnField = condition;
+    this.maxBatchSize = maxBatchSize;
   }
 
   /**
@@ -72,7 +79,7 @@ public class Writer {
         batchOperation = recordOperation;
       }
 
-      if (recordCollection.equals(batchCollection) && recordOperation == batchOperation) {
+      if (recordCollection.equals(batchCollection) && recordOperation == batchOperation && (maxBatchSize == UNLIMITED_BATCH_SIZE || batch.size() < maxBatchSize)) {
         // Record belongs to the batch, add it
         batch.add(record);
       } else {
@@ -174,25 +181,35 @@ public class Writer {
    * @param records Records to repsert
    */
   private void filteredRepsertBatch(final String collection, final List<ArangoRecord> records) {
+    final Object NULL_Object = new Object();
     final List<String> documentValues = records.stream()
         .map(record -> record.getValue())
+	// Sanitize data
+	.map((String doc) -> {
+            try {
+	      if (doc != null) { new JSONParser().parse(doc); }
+	      return (Object)doc;
+            } catch (ParseException e) {
+                LOG.error("Json parse exception. collection: {}, message: {}", collection, e.getMessage());
+		return NULL_Object;
+	    }    
+	})
+        .filter(obj -> obj != NULL_Object)
+	.map(obj -> (String)obj)
         .collect(Collectors.toList());
 
-    // TODO: Make try-catch for the query. Update the function Only if query fails
-    this.database.createAqlFunction(
-        "CONNECTOR::UDF::LATEST",
-	Writer.UDF_LATEST,
-	new AqlFunctionCreateOptions()
+    final String query = String.format(
+        "FOR doc IN [%s] UPSERT {\"_key\": doc._key } INSERT doc REPLACE CONNECTOR::UDF::LATEST(OLD, doc, \"%s\") IN \"%s\"",
+        String.join(", ", documentValues),
+	this.filterLatestOnField,
+	collection
     );
 
-    this.database.query(
-        "FOR doc IN @@docs UPSERT doc._id UPDATE CONNECTOR::UDF::LATEST(OLD, doc, @@field) IN @@collection",
-	new MapBuilder()
-	    .put("@docs", documentValues)
-	    .put("@collection", collection)
-	    .put("@field", this.filterLatestOnField)
-	    .get(),
-	BaseDocument.class
-    );
+    try { this.database.query(query, BaseDocument.class); } 
+    catch (Exception e) {
+        LOG.error("Upsert exception <{}>: {} Query: {}", e.getClass().getCanonicalName(), e.getMessage(), query);
+        this.database.createAqlFunction("CONNECTOR::UDF::LATEST", Writer.UDF_LATEST, new AqlFunctionCreateOptions().isDeterministic(true));
+        this.database.query(query, BaseDocument.class);
+    }
   }
 }

@@ -1,0 +1,7 @@
+{
+	"brokers": "kafka:9092",
+	"message_timeout_ms": 1000,
+	"topic": "testaccounts",
+	"attempt_timeout_ms": 1000
+}
+

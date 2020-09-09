@@ -40,8 +40,13 @@ public class ArangoDbSinkConfig extends AbstractConfig {
 
   private static final String ARANGODB_OBJECT_UPGRADE_FIELD = "arangodb.object.upgrade";
   private static final String ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT = "";
-  private static final String ARANGODB_OBJECT_UPGRADE_FIELD_DOC = "Filed to used to decide if upgrade is needed.";
+  private static final String ARANGODB_OBJECT_UPGRADE_FIELD_DOC = "If set: the value is used as a field name in the document to determine if object update is needed. This field is expected to be an ascending value.";
   public final String arangoDbObjectUpsertFieldFilter;
+  
+  private static final String ARANGODB_MAX_BATCH_SIZE = "arangodb.batch.maxSize";
+  private static final int ARANGODB_MAX_BATCH_SIZE_DEFAULT = -1;
+  private static final String ARANGODB_MAX_BATCH_SIZE_DOC = "Sets the maximum number of documents to be send in one batch.";
+  public final int arangoDbMaxBatchSize;
 
   public static final ConfigDef CONFIG_DEF = new ConfigDef()
       .define(ARANGODB_HOST, Type.STRING, Importance.HIGH, ARANGODB_HOST_DOC)
@@ -51,6 +56,7 @@ public class ArangoDbSinkConfig extends AbstractConfig {
       .define(ARANGODB_USE_SSL, Type.BOOLEAN, ARANGODB_USE_SSL_DEFAULT, Importance.HIGH, ARANGODB_USE_SSL_DOC)
       .define(ARANGODB_DATABASE_NAME, Type.STRING, Importance.HIGH, ARANGODB_DATABASE_NAME_DOC)
       .define(ARANGODB_OBJECT_UPGRADE_FIELD, Type.STRING, ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT, Importance.HIGH, ARANGODB_OBJECT_UPGRADE_FIELD_DOC)
+      .define(ARANGODB_MAX_BATCH_SIZE, Type.INT, ARANGODB_MAX_BATCH_SIZE_DEFAULT,  Importance.HIGH, ARANGODB_MAX_BATCH_SIZE_DOC)
       ;
 
   /**
@@ -69,5 +75,6 @@ public class ArangoDbSinkConfig extends AbstractConfig {
     this.arangoDbUseSsl = getBoolean(ARANGODB_USE_SSL);
     this.arangoDbDatabaseName = getString(ARANGODB_DATABASE_NAME);
     this.arangoDbObjectUpsertFieldFilter = getString(ARANGODB_OBJECT_UPGRADE_FIELD);
+    this.arangoDbMaxBatchSize = getInt(ARANGODB_MAX_BATCH_SIZE);
   }
 }
