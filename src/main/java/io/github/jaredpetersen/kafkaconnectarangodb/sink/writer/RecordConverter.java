@@ -4,17 +4,33 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.BufferedReader;
+import java.io.BufferedInputStream;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.net.URL;
+import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.json.JsonDeserializer;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.header.Header;
+import org.apache.kafka.connect.header.Headers;
+import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.errors.RetriableException;
+import java.net.MalformedURLException;
+import io.github.jaredpetersen.kafkaconnectarangodb.sink.errors.ExternalMessageDataMalformedURLException;
 
 /**
  * Convert Kafka Connect records to ArangoDB records.
  */
 public class RecordConverter {
+  public final String EXTERNAL_MESSAGE_DATA_HEADER_KEY = "external-message-ref";
+  private static final Logger LOG = LoggerFactory.getLogger(RecordConverter.class);
   private final JsonConverter jsonConverter;
   private final JsonDeserializer jsonDeserializer;
   private final ObjectMapper objectMapper;
@@ -79,6 +95,40 @@ public class RecordConverter {
 
     return key;
   }
+  
+  private String getExternalMessageDataRef(final Headers headers) {
+    final Header dataRef = headers.lastWithName(EXTERNAL_MESSAGE_DATA_HEADER_KEY);
+    return dataRef == null ? null : (String)dataRef.value();
+  }
+
+  private Object extractExternalMessageData(final String address)
+    throws ExternalMessageDataMalformedURLException 
+  {
+    try {
+      final URL url = new URL(address);
+      final BufferedReader inputStream = new BufferedReader(
+        new InputStreamReader(url.openStream())
+      );
+      Map<String,Object> result = new ObjectMapper().readValue(inputStream, HashMap.class);
+      return result;
+    } catch (MalformedURLException e) {
+      throw new ExternalMessageDataMalformedURLException(e);
+    } catch (IOException e) {
+
+      if (getRemainingRetriesForTopic(config.getTopic()).decrementAndGet() <= 0) {
+        throw new DataException("Failed to write mongodb documents despite retrying", e);
+      }
+      Integer deferRetryMs = config.getInt(RETRIES_DEFER_TIMEOUT_CONFIG);
+      LOG.warning(
+        "IOExeption in external data (will retry after {}ms): {}",
+	deferRetryMs,
+	e.getMessage()
+      );
+      context.timeout(deferRetryMs);
+
+      throw new RetriableException("IOExeption in external data", e);
+    }
+  }
 
   /**
    * Get the ArangoDB document value as stringified JSON from the SinkRecord.
@@ -86,9 +136,15 @@ public class RecordConverter {
    * @return ArangoDB document value in stringified JSON
    */
   @SuppressWarnings("unchecked")
-  private String getValue(final SinkRecord record) {
+  private String getValue(final SinkRecord record) 
+    throws ExternalMessageDataMalformedURLException
+  {
+    // Externam message value
+    final String externalMessageDataRef = getExternalMessageDataRef(record.headers()); 
+    final Object data = (externalMessageDataRef == null || externalMessageDataRef == "") ? 
+      record.value() : extractExternalMessageData(externalMessageDataRef);
     // Tombstone records don't need to be converted
-    if (record.value() == null) {
+    if (data == null) {
       return null;
     }
 
@@ -112,7 +168,7 @@ public class RecordConverter {
     final byte[] serializedRecord = jsonConverter.fromConnectData(
       record.topic(),
       record.valueSchema(),
-      record.value());
+      data);
     final JsonNode valueJson = jsonDeserializer.deserialize(record.topic(), serializedRecord);
 
     // Has to be an object, otherwise we can't write the record to the database

@@ -78,7 +78,12 @@ public class ArangoDbSinkTask extends SinkTask {
         .collect(Collectors.toList());
 
     // Write the ArangoDB records to the database
-    this.writer.write(arangoRecords);
+    try {
+      this.writer.write(arangoRecords);
+    } catch() {
+      LOG.error("MalformedURLException in external data reference: {}", e.getMessage());
+      throw new DataException("MalformedURLException in external data reference", e);
+    }
   }
 
   @Override
