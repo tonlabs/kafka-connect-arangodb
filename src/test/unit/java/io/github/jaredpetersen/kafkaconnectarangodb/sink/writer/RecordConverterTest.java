@@ -17,6 +17,7 @@ import org.apache.kafka.connect.json.JsonConverterConfig;
 import org.apache.kafka.connect.json.JsonDeserializer;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.jupiter.api.Test;
+import io.github.jaredpetersen.kafkaconnectarangodb.sink.errors.ExternalMessageDataMalformedURLException;
 
 public class RecordConverterTest {
   private final Schema keyStructSchema = SchemaBuilder.struct()
@@ -30,7 +31,7 @@ public class RecordConverterTest {
       .build();
 
   @Test
-  public void convertSchemafulRecordReturnsArangoRecord() {
+  public void convertSchemafulRecordReturnsArangoRecord() throws ExternalMessageDataMalformedURLException {
     // Set up stub data
     final Struct keyStub = new Struct(this.keyStructSchema)
         .put("Id", 45);
@@ -66,7 +67,9 @@ public class RecordConverterTest {
   }
 
   @Test
-  public void convertSchemafulTombstoneRecordReturnsArangoRecord() {
+  public void convertSchemafulTombstoneRecordReturnsArangoRecord()
+    throws ExternalMessageDataMalformedURLException
+  {
     // Set up stub data
     final Struct keyStub = new Struct(this.keyStructSchema)
         .put("Id", 45);
@@ -137,7 +140,9 @@ public class RecordConverterTest {
   }
 
   @Test
-  public void convertSchemalessRecordReturnsArangoRecord() {
+  public void convertSchemalessRecordReturnsArangoRecord()
+    throws ExternalMessageDataMalformedURLException
+  {
     // Set up stub data
     final Map<String, Object> keyStub = new LinkedHashMap<>();
     keyStub.put("Id", 45);
@@ -175,7 +180,9 @@ public class RecordConverterTest {
   }
 
   @Test
-  public void convertSchemalessTombstoneRecordReturnsArangoRecord() {
+  public void convertSchemalessTombstoneRecordReturnsArangoRecord()
+    throws ExternalMessageDataMalformedURLException 
+  {
     // Set up stub data
     final Map<String, Object> keyStub = new LinkedHashMap<>();
     keyStub.put("Id", 45);

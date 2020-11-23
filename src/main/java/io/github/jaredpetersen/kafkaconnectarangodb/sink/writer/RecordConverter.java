@@ -24,16 +24,22 @@ import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.errors.RetriableException;
 import java.net.MalformedURLException;
 import io.github.jaredpetersen.kafkaconnectarangodb.sink.errors.ExternalMessageDataMalformedURLException;
+import io.github.jaredpetersen.kafkaconnectarangodb.sink.ArangoDbSinkTask;
 
 /**
  * Convert Kafka Connect records to ArangoDB records.
  */
 public class RecordConverter {
   public final String EXTERNAL_MESSAGE_DATA_HEADER_KEY = "external-message-ref";
-  private static final Logger LOG = LoggerFactory.getLogger(RecordConverter.class);
+
+  //private static final Logger LOG = LoggerFactory.getLogger(RecordConverter.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ArangoDbSinkTask.class);
+
   private final JsonConverter jsonConverter;
   private final JsonDeserializer jsonDeserializer;
   private final ObjectMapper objectMapper;
+  private final int kafkaExternalMessagesDataReadMaxTries;
+  private final int kafkaExternalMessagesDataReadRetriesDeferTimeout;
 
   /**
    * Construct a new RecordConverter.
@@ -42,17 +48,34 @@ public class RecordConverter {
    * @param objectMapper Utility for writing JSON to a string
    */
   public RecordConverter(final JsonConverter jsonConverter, final JsonDeserializer jsonDeserializer, final ObjectMapper objectMapper) {
+    this(jsonConverter, jsonDeserializer, objectMapper, 3, 100);
+  }
+
+  /**
+   * Construct a new RecordConverter.
+   * @param jsonConverter Utility for serializing SinkRecords
+   * @param jsonDeserializer Utility for deserializing serialized SinkRecords to JSON
+   * @param objectMapper Utility for writing JSON to a string
+   * @param kafkaExternalMessagesDataReadMaxTries Number of maximum attempts to read message body stored externally
+   * @param kafkaExternalMessagesDataReadRetriesDeferTimeout Defer timeout between read attempts in ms
+   */
+  public RecordConverter(final JsonConverter jsonConverter, final JsonDeserializer jsonDeserializer, final ObjectMapper objectMapper, int kafkaExternalMessagesDataReadMaxTries, int kafkaExternalMessagesDataReadRetriesDeferTimeout) {
     this.jsonConverter = jsonConverter;
     this.jsonDeserializer = jsonDeserializer;
     this.objectMapper = objectMapper;
+    this.kafkaExternalMessagesDataReadMaxTries = kafkaExternalMessagesDataReadMaxTries; 
+    this.kafkaExternalMessagesDataReadRetriesDeferTimeout = kafkaExternalMessagesDataReadRetriesDeferTimeout;
   }
+
 
   /**
    * Convert SinkRecord to an ArangoRecord.
    * @param record Record to convert
    * @return ArangoRecord equivalent of the SinkRecord
    */
-  public final ArangoRecord convert(final SinkRecord record) {
+  public final ArangoRecord convert(final SinkRecord record)
+     throws ExternalMessageDataMalformedURLException
+  {
     return new ArangoRecord(
       this.getCollection(record),
       this.getKey(record),
@@ -97,6 +120,12 @@ public class RecordConverter {
   }
   
   private String getExternalMessageDataRef(final Headers headers) {
+    if (headers == null) {
+      LOG.info("Headers count: null");
+      return null;
+    }
+    LOG.info("Headers count: " + headers.size());
+    
     final Header dataRef = headers.lastWithName(EXTERNAL_MESSAGE_DATA_HEADER_KEY);
     return dataRef == null ? null : (String)dataRef.value();
   }
@@ -104,6 +133,8 @@ public class RecordConverter {
   private Object extractExternalMessageData(final String address)
     throws ExternalMessageDataMalformedURLException 
   {
+    LOG.info("Extractin external message data from " + address);
+    int remainingTries = this.kafkaExternalMessagesDataReadMaxTries;
     try {
       final URL url = new URL(address);
       final BufferedReader inputStream = new BufferedReader(
@@ -114,18 +145,25 @@ public class RecordConverter {
     } catch (MalformedURLException e) {
       throw new ExternalMessageDataMalformedURLException(e);
     } catch (IOException e) {
-
-      if (getRemainingRetriesForTopic(config.getTopic()).decrementAndGet() <= 0) {
-        throw new DataException("Failed to write mongodb documents despite retrying", e);
+      remainingTries --;
+      if (remainingTries <= 0) {
+        throw new DataException("Failed to read message data despite retrying", e);
       }
-      Integer deferRetryMs = config.getInt(RETRIES_DEFER_TIMEOUT_CONFIG);
-      LOG.warning(
-        "IOExeption in external data (will retry after {}ms): {}",
-	deferRetryMs,
-	e.getMessage()
+      int deferRetryMs = this.kafkaExternalMessagesDataReadRetriesDeferTimeout;
+      LOG.warn(
+        String.format(
+          "IOExeption in external data (will retry after %dms): %s",
+          deferRetryMs,
+          e.getMessage()
+        )
       );
-      context.timeout(deferRetryMs);
-
+      try {
+        if (deferRetryMs > 0) {
+          Thread.sleep(deferRetryMs);
+        }
+      } catch(InterruptedException _) {
+      }
+      
       throw new RetriableException("IOExeption in external data", e);
     }
   }

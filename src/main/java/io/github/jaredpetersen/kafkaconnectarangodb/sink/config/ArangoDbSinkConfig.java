@@ -48,6 +48,16 @@ public class ArangoDbSinkConfig extends AbstractConfig {
   private static final String ARANGODB_MAX_BATCH_SIZE_DOC = "Sets the maximum number of documents to be send in one batch.";
   public final int arangoDbMaxBatchSize;
 
+  private static final String KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES = "kafka.external-message-ref.max-retries";
+  private static final int KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES_DEFAULT = 3; 
+  private static final String KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES_DOC = "Set the maximum number of attempts to read data for the kafka message stored externally.";
+  public final int kafkaExternalMessagesDataReadMaxTries;
+
+  private static final String KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT = "kafka.external-message-ref.retries-defer-timeout";
+  private static final int KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT_DEFAULT = 100;
+  private static final String KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT_DOC = "Set timeout in milliseconds between read attempts for externally stored message bodies.";
+  public final int kafkaExternalMessagesDataReadRetriesDeferTimeout;
+
   public static final ConfigDef CONFIG_DEF = new ConfigDef()
       .define(ARANGODB_HOST, Type.STRING, Importance.HIGH, ARANGODB_HOST_DOC)
       .define(ARANGODB_PORT, Type.INT, Importance.HIGH, ARANGODB_PORT_DOC)
@@ -57,6 +67,8 @@ public class ArangoDbSinkConfig extends AbstractConfig {
       .define(ARANGODB_DATABASE_NAME, Type.STRING, Importance.HIGH, ARANGODB_DATABASE_NAME_DOC)
       .define(ARANGODB_OBJECT_UPGRADE_FIELD, Type.STRING, ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT, Importance.HIGH, ARANGODB_OBJECT_UPGRADE_FIELD_DOC)
       .define(ARANGODB_MAX_BATCH_SIZE, Type.INT, ARANGODB_MAX_BATCH_SIZE_DEFAULT,  Importance.HIGH, ARANGODB_MAX_BATCH_SIZE_DOC)
+      .define(KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES, Type.INT, KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES_DEFAULT, Importance.HIGH, KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES_DOC)
+      .define(KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT, Type.INT, KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT_DEFAULT, Importance.HIGH, KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT_DOC)  
       ;
 
   /**
@@ -76,5 +88,12 @@ public class ArangoDbSinkConfig extends AbstractConfig {
     this.arangoDbDatabaseName = getString(ARANGODB_DATABASE_NAME);
     this.arangoDbObjectUpsertFieldFilter = getString(ARANGODB_OBJECT_UPGRADE_FIELD);
     this.arangoDbMaxBatchSize = getInt(ARANGODB_MAX_BATCH_SIZE);
+    int kafkaExternalMessagesDataReadMaxTries = getInt(KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES);
+    if (kafkaExternalMessagesDataReadMaxTries < 1) {
+       LOGGER.warn(KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES + " is less than 1. Ignoring configured value and setting it to the minimum value of 1.");
+       kafkaExternalMessagesDataReadMaxTries = 1;
+    }
+    this.kafkaExternalMessagesDataReadMaxTries = kafkaExternalMessagesDataReadMaxTries;
+    this.kafkaExternalMessagesDataReadRetriesDeferTimeout = getInt(KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT);
   }
 }
