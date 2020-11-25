@@ -8,6 +8,7 @@ import io.github.jaredpetersen.kafkaconnectarangodb.sink.writer.ArangoRecord;
 import io.github.jaredpetersen.kafkaconnectarangodb.sink.writer.RecordConverter;
 import io.github.jaredpetersen.kafkaconnectarangodb.sink.writer.Writer;
 import io.github.jaredpetersen.kafkaconnectarangodb.util.VersionUtil;
+import io.github.jaredpetersen.kafkaconnectarangodb.sink.errors.ExternalMessageDataMalformedURLException;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -19,6 +20,7 @@ import org.apache.kafka.connect.json.JsonConverterConfig;
 import org.apache.kafka.connect.json.JsonDeserializer;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
+import org.apache.kafka.connect.errors.DataException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,10 +61,9 @@ public class ArangoDbSinkTask extends SinkTask {
     final JsonDeserializer jsonDeserializer = new JsonDeserializer();
     final ObjectMapper objectMapper = new ObjectMapper();
 
-    this.recordConverter = new RecordConverter(jsonConverter, jsonDeserializer, objectMapper);
-
+    this.recordConverter = new RecordConverter(jsonConverter, jsonDeserializer, objectMapper, config.kafkaExternalMessagesDataReadMaxTries, config.kafkaExternalMessagesDataReadRetriesDeferTimeout);
     // Set up the writer
-    this.writer = new Writer(database);
+    this.writer = new Writer(database, config.arangoDbObjectUpsertFieldFilter, config.arangoDbMaxBatchSize);
   }
 
   @Override
@@ -71,11 +72,18 @@ public class ArangoDbSinkTask extends SinkTask {
       return;
     }
 
-    LOG.info("writing {} record(s)", records.size());
+    LOG.info("writing {} record(s)...", records.size());
 
     // Convert sink records into something that can be written
     final Collection<ArangoRecord> arangoRecords = records.stream()
-        .map((sinkRecord) -> this.recordConverter.convert(sinkRecord))
+        .map((sinkRecord) -> { 
+          try {
+            return this.recordConverter.convert(sinkRecord);
+          } catch(ExternalMessageDataMalformedURLException e) {
+            LOG.error("MalformedURLException in external data reference: {}", e.getMessage());
+            throw new DataException("MalformedURLException in external data reference", e);
+          }
+        })
         .collect(Collectors.toList());
 
     // Write the ArangoDB records to the database

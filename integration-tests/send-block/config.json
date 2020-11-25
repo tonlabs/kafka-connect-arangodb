@@ -1,0 +1,6 @@
+{
+    "brokers": "kafka",
+    "message_timeout_ms": 500,
+    "topic": "raw_blocks",
+    "attempt_timeout_ms": 1000
+}

@@ -4,20 +4,42 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.BufferedReader;
+import java.io.BufferedInputStream;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.net.URL;
+import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.json.JsonDeserializer;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.header.Header;
+import org.apache.kafka.connect.header.Headers;
+import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.errors.RetriableException;
+import java.net.MalformedURLException;
+import io.github.jaredpetersen.kafkaconnectarangodb.sink.errors.ExternalMessageDataMalformedURLException;
+import io.github.jaredpetersen.kafkaconnectarangodb.sink.ArangoDbSinkTask;
 
 /**
  * Convert Kafka Connect records to ArangoDB records.
  */
 public class RecordConverter {
+  public final String EXTERNAL_MESSAGE_DATA_HEADER_KEY = "external-message-ref";
+
+  //private static final Logger LOG = LoggerFactory.getLogger(RecordConverter.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ArangoDbSinkTask.class);
+
   private final JsonConverter jsonConverter;
   private final JsonDeserializer jsonDeserializer;
   private final ObjectMapper objectMapper;
+  private final int kafkaExternalMessagesDataReadMaxTries;
+  private final int kafkaExternalMessagesDataReadRetriesDeferTimeout;
 
   /**
    * Construct a new RecordConverter.
@@ -26,17 +48,34 @@ public class RecordConverter {
    * @param objectMapper Utility for writing JSON to a string
    */
   public RecordConverter(final JsonConverter jsonConverter, final JsonDeserializer jsonDeserializer, final ObjectMapper objectMapper) {
+    this(jsonConverter, jsonDeserializer, objectMapper, 3, 100);
+  }
+
+  /**
+   * Construct a new RecordConverter.
+   * @param jsonConverter Utility for serializing SinkRecords
+   * @param jsonDeserializer Utility for deserializing serialized SinkRecords to JSON
+   * @param objectMapper Utility for writing JSON to a string
+   * @param kafkaExternalMessagesDataReadMaxTries Number of maximum attempts to read message body stored externally
+   * @param kafkaExternalMessagesDataReadRetriesDeferTimeout Defer timeout between read attempts in ms
+   */
+  public RecordConverter(final JsonConverter jsonConverter, final JsonDeserializer jsonDeserializer, final ObjectMapper objectMapper, int kafkaExternalMessagesDataReadMaxTries, int kafkaExternalMessagesDataReadRetriesDeferTimeout) {
     this.jsonConverter = jsonConverter;
     this.jsonDeserializer = jsonDeserializer;
     this.objectMapper = objectMapper;
+    this.kafkaExternalMessagesDataReadMaxTries = kafkaExternalMessagesDataReadMaxTries; 
+    this.kafkaExternalMessagesDataReadRetriesDeferTimeout = kafkaExternalMessagesDataReadRetriesDeferTimeout;
   }
+
 
   /**
    * Convert SinkRecord to an ArangoRecord.
    * @param record Record to convert
    * @return ArangoRecord equivalent of the SinkRecord
    */
-  public final ArangoRecord convert(final SinkRecord record) {
+  public final ArangoRecord convert(final SinkRecord record)
+     throws ExternalMessageDataMalformedURLException
+  {
     return new ArangoRecord(
       this.getCollection(record),
       this.getKey(record),
@@ -79,6 +118,55 @@ public class RecordConverter {
 
     return key;
   }
+  
+  private String getExternalMessageDataRef(final Headers headers) {
+    if (headers == null) {
+      LOG.info("Headers count: null");
+      return null;
+    }
+    LOG.info("Headers count: " + headers.size());
+    
+    final Header dataRef = headers.lastWithName(EXTERNAL_MESSAGE_DATA_HEADER_KEY);
+    return dataRef == null ? null : (String)dataRef.value();
+  }
+
+  private Object extractExternalMessageData(final String address)
+    throws ExternalMessageDataMalformedURLException 
+  {
+    LOG.info("Extractin external message data from " + address);
+    int remainingTries = this.kafkaExternalMessagesDataReadMaxTries;
+    try {
+      final URL url = new URL(address);
+      final BufferedReader inputStream = new BufferedReader(
+        new InputStreamReader(url.openStream())
+      );
+      Map<String,Object> result = new ObjectMapper().readValue(inputStream, HashMap.class);
+      return result;
+    } catch (MalformedURLException e) {
+      throw new ExternalMessageDataMalformedURLException(e);
+    } catch (IOException e) {
+      remainingTries --;
+      if (remainingTries <= 0) {
+        throw new DataException("Failed to read message data despite retrying", e);
+      }
+      int deferRetryMs = this.kafkaExternalMessagesDataReadRetriesDeferTimeout;
+      LOG.warn(
+        String.format(
+          "IOExeption in external data (will retry after %dms): %s",
+          deferRetryMs,
+          e.getMessage()
+        )
+      );
+      try {
+        if (deferRetryMs > 0) {
+          Thread.sleep(deferRetryMs);
+        }
+      } catch(InterruptedException _) {
+      }
+      
+      throw new RetriableException("IOExeption in external data", e);
+    }
+  }
 
   /**
    * Get the ArangoDB document value as stringified JSON from the SinkRecord.
@@ -86,9 +174,15 @@ public class RecordConverter {
    * @return ArangoDB document value in stringified JSON
    */
   @SuppressWarnings("unchecked")
-  private String getValue(final SinkRecord record) {
+  private String getValue(final SinkRecord record) 
+    throws ExternalMessageDataMalformedURLException
+  {
+    // Externam message value
+    final String externalMessageDataRef = getExternalMessageDataRef(record.headers()); 
+    final Object data = (externalMessageDataRef == null || externalMessageDataRef == "") ? 
+      record.value() : extractExternalMessageData(externalMessageDataRef);
     // Tombstone records don't need to be converted
-    if (record.value() == null) {
+    if (data == null) {
       return null;
     }
 
@@ -112,7 +206,7 @@ public class RecordConverter {
     final byte[] serializedRecord = jsonConverter.fromConnectData(
       record.topic(),
       record.valueSchema(),
-      record.value());
+      data);
     final JsonNode valueJson = jsonDeserializer.deserialize(record.topic(), serializedRecord);
 
     // Has to be an object, otherwise we can't write the record to the database

@@ -1,28 +1,54 @@
 package io.github.jaredpetersen.kafkaconnectarangodb.sink.writer;
 
 import com.arangodb.ArangoDatabase;
+import com.arangodb.model.AqlFunctionCreateOptions;
+import com.arangodb.util.MapBuilder;
 import com.arangodb.model.DocumentCreateOptions;
+import com.arangodb.entity.BaseDocument;
 import com.arangodb.model.DocumentDeleteOptions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 /**
  * Writer for writing Kafka Connect records to ArangoDB.
  */
 public class Writer {
+  public static final int UNLIMITED_BATCH_SIZE = -1;
   private enum Operation { REPSERT, DELETE }
 
+  private static final Logger LOG = LoggerFactory.getLogger(Writer.class);
+
   private final ArangoDatabase database;
+  private final String filterLatestOnField;
+  private final int maxBatchSize;
+
+  private static final String UDF_LATEST = "" +
+      "function latest(a, b, field) {\n" +
+      "  'use strict'; \n" +
+      "  if (a == null) { return b; } \n" +
+      "  if (a[field] > b[field]) { \n" +
+      "      return a; \n" +
+      "  } else { \n" +
+      "      return b; \n" +
+      "  } \n" +
+      "}";
 
   /**
    * Construct a new Kafka record writer for ArangoDB.
    * @param database ArangoDB database to write to.
    */
-  public Writer(final ArangoDatabase database) {
+  public Writer(final ArangoDatabase database, String condition, int maxBatchSize) {
     this.database = database;
+    this.filterLatestOnField = condition;
+    this.maxBatchSize = maxBatchSize;
   }
 
   /**
@@ -53,7 +79,7 @@ public class Writer {
         batchOperation = recordOperation;
       }
 
-      if (recordCollection.equals(batchCollection) && recordOperation == batchOperation) {
+      if (recordCollection.equals(batchCollection) && recordOperation == batchOperation && (maxBatchSize == UNLIMITED_BATCH_SIZE || batch.size() < maxBatchSize)) {
         // Record belongs to the batch, add it
         batch.add(record);
       } else {
@@ -100,7 +126,11 @@ public class Writer {
 
     switch (batchOperation) {
       case REPSERT:
-        repsertBatch(batchCollection, batch);
+	if (this.filterLatestOnField == null || this.filterLatestOnField.isEmpty()) {
+            repsertBatch(batchCollection, batch);
+	} else {
+	    filteredRepsertBatch(batchCollection, batch);
+	}
         break;
       case DELETE:
         deleteBatch(batchCollection, batch);
@@ -144,5 +174,42 @@ public class Writer {
             .overwrite(true)
             .waitForSync(true)
             .silent(true));
+  }
+  /**
+   * Conditional repsert a batch of records to the database.
+   * @param collection Name of the collection to repsert to
+   * @param records Records to repsert
+   */
+  private void filteredRepsertBatch(final String collection, final List<ArangoRecord> records) {
+    final Object NULL_Object = new Object();
+    final List<String> documentValues = records.stream()
+        .map(record -> record.getValue())
+	// Sanitize data
+	.map((String doc) -> {
+            try {
+	      if (doc != null) { new JSONParser().parse(doc); }
+	      return (Object)doc;
+            } catch (ParseException e) {
+                LOG.error("Json parse exception. collection: {}, message: {}", collection, e.getMessage());
+		return NULL_Object;
+	    }    
+	})
+        .filter(obj -> obj != NULL_Object)
+	.map(obj -> (String)obj)
+        .collect(Collectors.toList());
+
+    final String query = String.format(
+        "FOR doc IN [%s] UPSERT {\"_key\": doc._key } INSERT doc REPLACE CONNECTOR::UDF::LATEST(OLD, doc, \"%s\") IN \"%s\"",
+        String.join(", ", documentValues),
+	this.filterLatestOnField,
+	collection
+    );
+
+    try { this.database.query(query, BaseDocument.class); } 
+    catch (Exception e) {
+        LOG.error("Upsert exception <{}>: {} Query: {}", e.getClass().getCanonicalName(), e.getMessage(), query);
+        this.database.createAqlFunction("CONNECTOR::UDF::LATEST", Writer.UDF_LATEST, new AqlFunctionCreateOptions().isDeterministic(true));
+        this.database.query(query, BaseDocument.class);
+    }
   }
 }
