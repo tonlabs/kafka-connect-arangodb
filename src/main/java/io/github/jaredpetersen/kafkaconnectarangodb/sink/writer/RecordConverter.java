@@ -8,6 +8,7 @@ import java.io.BufferedReader;
 import java.io.BufferedInputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
+import java.lang.System;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,6 +41,7 @@ public class RecordConverter {
   private final ObjectMapper objectMapper;
   private final int kafkaExternalMessagesDataReadMaxTries;
   private final int kafkaExternalMessagesDataReadRetriesDeferTimeout;
+  private final boolean addTimestampToArangoRecords;
 
   /**
    * Construct a new RecordConverter.
@@ -48,7 +50,7 @@ public class RecordConverter {
    * @param objectMapper Utility for writing JSON to a string
    */
   public RecordConverter(final JsonConverter jsonConverter, final JsonDeserializer jsonDeserializer, final ObjectMapper objectMapper) {
-    this(jsonConverter, jsonDeserializer, objectMapper, 3, 100);
+    this(jsonConverter, jsonDeserializer, objectMapper, 3, 100, false);
   }
 
   /**
@@ -58,13 +60,18 @@ public class RecordConverter {
    * @param objectMapper Utility for writing JSON to a string
    * @param kafkaExternalMessagesDataReadMaxTries Number of maximum attempts to read message body stored externally
    * @param kafkaExternalMessagesDataReadRetriesDeferTimeout Defer timeout between read attempts in ms
+   * @param addTimestampToArangoRecords enable/disable additional timestamp field in value of record
    */
-  public RecordConverter(final JsonConverter jsonConverter, final JsonDeserializer jsonDeserializer, final ObjectMapper objectMapper, int kafkaExternalMessagesDataReadMaxTries, int kafkaExternalMessagesDataReadRetriesDeferTimeout) {
+  public RecordConverter(final JsonConverter jsonConverter, final JsonDeserializer jsonDeserializer, final ObjectMapper objectMapper, 
+          int kafkaExternalMessagesDataReadMaxTries, 
+          int kafkaExternalMessagesDataReadRetriesDeferTimeout, 
+          boolean addTimestampToArangoRecords) {
     this.jsonConverter = jsonConverter;
     this.jsonDeserializer = jsonDeserializer;
     this.objectMapper = objectMapper;
     this.kafkaExternalMessagesDataReadMaxTries = kafkaExternalMessagesDataReadMaxTries; 
     this.kafkaExternalMessagesDataReadRetriesDeferTimeout = kafkaExternalMessagesDataReadRetriesDeferTimeout;
+    this.addTimestampToArangoRecords = addTimestampToArangoRecords;
   }
 
 
@@ -218,7 +225,12 @@ public class RecordConverter {
     final ObjectNode valueJsonObject = (ObjectNode) valueJson;
     valueJsonObject.put("_key", keyValue);
     valueJsonObject.remove(keyFieldName);
-
+    
+    // Add timestamp to record
+    if(this.addTimestampToArangoRecords){
+        valueJsonObject.put("lat_update_ts",System.currentTimeMillis());
+    }
+    
     // Return the stringified JSON
     try {
       return this.objectMapper.writeValueAsString(valueJsonObject);
