@@ -12,6 +12,7 @@ import io.github.jaredpetersen.kafkaconnectarangodb.sink.errors.ExternalMessageD
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -65,7 +66,7 @@ public class ArangoDbSinkTask extends SinkTask {
             config.kafkaExternalMessagesDataReadMaxTries,
             config.kafkaExternalMessagesDataReadRetriesDeferTimeout,
             config.arangoDbRecordAddTimestamp,
-            config.arangoDbCollectionName);
+            config.arangoDbCollectionMapping);
     // Set up the writer
     this.writer = new Writer(database, config.arangoDbObjectUpsertFieldFilter, config.arangoDbMaxBatchSize);
   }

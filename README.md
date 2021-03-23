@@ -70,23 +70,26 @@ To use this record format, configure it as a Kafka Connect Single Message Transf
 ```
 
 ### Topics
-The name of the topic determines the name of the collection the record will be written to.
+The name of the topic determines the name of the collection the record will be written to if collection name for the topic records is not specified in configuration.
 
 Record with topics that are just a plain string like `products` will go into a collection with the name `products`. If the record's topic name is period-separated like `dbserver1.mydatabase.customers`, the last period-separated value will be the collection's name (`customers` in this case). Each configured Kafka Connect ArangoDB Connector will only output data into a single database instance.
+
+Collections name mapping is specified as comma-separated list of colon-delimited mapping pairs, e.g. `dbserver1.mydatabase.customers:my_customers,products:db_products`
 
 ### Foreign Keys and Edge Collections
 In most situations, the record values that you will want to sink into ArangoDB is not in a format that ArangoDB can use effectively. ArangoDB has it's own format for foreign keys (`{ "foreignKey": "MyCollection/1234" }`) and edges between vertices (`{ "_from": "MyCollection/1234", "_to": "MyCollection/5678" }`) that your input data likely doesn't implement by default. It is recommended that you build your own custom [Kafka Streams application](https://kafka.apache.org/documentation/streams/) to perform these mappings.
 
 ## Configuration
 ### Connector Properties
-| Name                     | Description                         | Type     | Default | Importance |
-| ------------------------ | ----------------------------------- | -------- | ------- | ---------- |
-| `arangodb.host`          | ArangoDB server host.               | string   |         | high       |
-| `arangodb.port`          | ArangoDB server host port number.   | int      |         | high       |
-| `arangodb.user`          | ArangoDB connection username.       | string   |         | high       |
-| `arangodb.password`      | ArangoDB connection password.       | password | ""      | high       |
-| `arangodb.useSsl`        | ArangoDB use SSL connection.        | boolean  | false   | high       |
-| `arangodb.database.name` | ArangoDB database name.             | string   |         | high       |
+| Name                          | Description                         | Type     | Default | Importance |
+| ----------------------------- | ----------------------------------- | -------- | ------- | ---------- |
+| `arangodb.host`               | ArangoDB server host.               | string   |         | high       |
+| `arangodb.port`               | ArangoDB server host port number.   | int      |         | high       |
+| `arangodb.user`               | ArangoDB connection username.       | string   |         | high       |
+| `arangodb.password`           | ArangoDB connection password.       | password | ""      | high       |
+| `arangodb.useSsl`             | ArangoDB use SSL connection.        | boolean  | false   | high       |
+| `arangodb.database.name`      | ArangoDB database name.             | string   |         | high       |
+| `arangodb.collection.mapping` | ArangoDB collection names mapping.  | string   |         | high       |
 
 ### Single Message Transformations
 | Type                                                               | Description                                        |

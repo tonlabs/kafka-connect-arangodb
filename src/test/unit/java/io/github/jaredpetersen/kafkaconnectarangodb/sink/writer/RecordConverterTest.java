@@ -277,6 +277,15 @@ public class RecordConverterTest {
         valueStub,
         0);
 
+      final SinkRecord sinkRecordStubToMap = new SinkRecord(
+          "some-other-prefix.table",
+          1,
+          keyStub.schema(),
+          keyStub,
+          valueStub.schema(),
+          valueStub,
+          0);
+
     // Set up RecordConverter dependencies
     final JsonConverter jsonConverter = new JsonConverter();
     jsonConverter.configure(
@@ -288,20 +297,22 @@ public class RecordConverterTest {
 
     // Set up expected data
     final ArangoRecord expectedArangoRecord = new ArangoRecord("table", "45", "{\"Name\":\"Henry\",\"Age\":2,\"_key\":\"45\"}");
+    final ArangoRecord expectedMappedArangoRecord = new ArangoRecord("configured-table", "45", "{\"Name\":\"Henry\",\"Age\":2,\"_key\":\"45\"}");
 
     // Test system under test
-    final RecordConverter recordConverter = new RecordConverter(jsonConverter, jsonDeserializer, objectMapper);
-    final ArangoRecord arangoRecord = recordConverter.convert(sinkRecordStub);
+    final RecordConverter recordConverter = new RecordConverter(
+        jsonConverter,
+        jsonDeserializer,
+        objectMapper,
+        3,
+        100,
+        false,
+        Map.of("some-other-prefix.table", "configured-table"));
 
+    final ArangoRecord arangoRecord = recordConverter.convert(sinkRecordStub);
     assertEquals(expectedArangoRecord, arangoRecord);
 
-    // Set up expected data
-    final ArangoRecord expectedConfiguredArangoRecord = new ArangoRecord("configured-table", "45", "{\"Name\":\"Henry\",\"Age\":2,\"_key\":\"45\"}");
-
-    // Test system under test
-    final RecordConverter configuredRecordConverter = new RecordConverter(jsonConverter, jsonDeserializer, objectMapper, 3, 100, false, "configured-table");
-    final ArangoRecord configuredArangoRecord = configuredRecordConverter.convert(sinkRecordStub);
-  
-      assertEquals(expectedConfiguredArangoRecord, configuredArangoRecord);
+    final ArangoRecord mappedArangoRecord = recordConverter.convert(sinkRecordStubToMap);
+    assertEquals(expectedMappedArangoRecord, mappedArangoRecord);
   }
 }

@@ -17,6 +17,7 @@ public class ArangoDbSinkConfigTest {
     originalsStub.put("arangodb.password", "password");
     originalsStub.put("arangodb.useSsl", true);
     originalsStub.put("arangodb.database.name", "kafka-connect-arangodb");
+    originalsStub.put("arangodb.database.name", "kafka-connect-arangodb");
 
     return originalsStub;
   }
@@ -122,5 +123,26 @@ public class ArangoDbSinkConfigTest {
     final ArangoDbSinkConfig config = new ArangoDbSinkConfig(originalsStub);
 
     assertEquals(originalsStub.get("arangodb.database.name"), config.arangoDbDatabaseName);
+  }
+
+  @Test
+  public void configGetArangoDbCollectionMappingReturnsDefaultValue() {
+    final Map<String, Object> originalsStub = buildConfigMap();
+    final ArangoDbSinkConfig config = new ArangoDbSinkConfig(originalsStub);
+
+    assertEquals(Map.of(), config.arangoDbCollectionMapping);
+  }
+
+  @Test
+  public void configGetArangoDbCollectionMappingReturnsCollectionMapping() {
+    final Map<String, Object> originalsStub = buildConfigMap();
+    originalsStub.put("arangodb.collection.mapping", "dbserver1.mydatabase.customers:my_customers,products:db_products");
+    final ArangoDbSinkConfig config = new ArangoDbSinkConfig(originalsStub);
+
+    assertEquals(
+      Map.of(
+        "dbserver1.mydatabase.customers", "my_customers",
+        "products", "db_products"),
+      config.arangoDbCollectionMapping);
   }
 }
