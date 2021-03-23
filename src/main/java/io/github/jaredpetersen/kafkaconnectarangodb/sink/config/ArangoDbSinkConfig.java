@@ -1,5 +1,6 @@
 package io.github.jaredpetersen.kafkaconnectarangodb.sink.config;
 
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
@@ -38,6 +39,11 @@ public class ArangoDbSinkConfig extends AbstractConfig {
   private static final String ARANGODB_DATABASE_NAME_DOC = "ArangoDb database name.";
   public final String arangoDbDatabaseName;
 
+  private static final String ARANGODB_COLLECTION_MAPPING = "arangodb.collection.mapping";
+  private static final String ARANGODB_COLLECTION_MAPPING_DEFAULT = "";
+  private static final String ARANGODB_COLLECTION_MAPPING_DOC = "ArangoDb collection mapping.";
+  public final Map<String, String> arangoDbCollectionMapping;
+
   private static final String ARANGODB_OBJECT_UPGRADE_FIELD = "arangodb.object.upgrade";
   private static final String ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT = "";
   private static final String ARANGODB_OBJECT_UPGRADE_FIELD_DOC = "If set: the value is used as a field name in the document to determine if object update is needed. This field is expected to be an ascending value.";
@@ -70,6 +76,7 @@ public class ArangoDbSinkConfig extends AbstractConfig {
       .define(ARANGODB_PASSWORD, Type.PASSWORD, ARANGODB_PASSWORD_DEFAULT, Importance.HIGH, ARANGODB_PASSWORD_DOC)
       .define(ARANGODB_USE_SSL, Type.BOOLEAN, ARANGODB_USE_SSL_DEFAULT, Importance.HIGH, ARANGODB_USE_SSL_DOC)
       .define(ARANGODB_DATABASE_NAME, Type.STRING, Importance.HIGH, ARANGODB_DATABASE_NAME_DOC)
+      .define(ARANGODB_COLLECTION_MAPPING, Type.STRING, ARANGODB_COLLECTION_MAPPING_DEFAULT, Importance.HIGH, ARANGODB_COLLECTION_MAPPING_DOC)
       .define(ARANGODB_OBJECT_UPGRADE_FIELD, Type.STRING, ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT, Importance.HIGH, ARANGODB_OBJECT_UPGRADE_FIELD_DOC)
       .define(ARANGODB_MAX_BATCH_SIZE, Type.INT, ARANGODB_MAX_BATCH_SIZE_DEFAULT,  Importance.HIGH, ARANGODB_MAX_BATCH_SIZE_DOC)
       .define(ARANGODB_RECORD_ADD_TIMESTAMP, Type.BOOLEAN, ARANGODB_RECORD_ADD_TIMESTAMP_DEFAULT, Importance.HIGH, ARANGODB_RECORD_ADD_TIMESTAMP_DOC)
@@ -92,6 +99,7 @@ public class ArangoDbSinkConfig extends AbstractConfig {
     this.arangoDbPassword = getPassword(ARANGODB_PASSWORD);
     this.arangoDbUseSsl = getBoolean(ARANGODB_USE_SSL);
     this.arangoDbDatabaseName = getString(ARANGODB_DATABASE_NAME);
+    this.arangoDbCollectionMapping = parseCollectionMapping(getString(ARANGODB_COLLECTION_MAPPING));
     this.arangoDbObjectUpsertFieldFilter = getString(ARANGODB_OBJECT_UPGRADE_FIELD);
     this.arangoDbMaxBatchSize = getInt(ARANGODB_MAX_BATCH_SIZE);
     this.arangoDbRecordAddTimestamp = getBoolean(ARANGODB_RECORD_ADD_TIMESTAMP);
@@ -102,5 +110,20 @@ public class ArangoDbSinkConfig extends AbstractConfig {
     }
     this.kafkaExternalMessagesDataReadMaxTries = kafkaExternalMessagesDataReadMaxTries;
     this.kafkaExternalMessagesDataReadRetriesDeferTimeout = getInt(KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT);
+  }
+
+  private final Map<String, String> parseCollectionMapping(String config) {
+    final Map<String, String> collectionMapping = new HashMap<String, String>();
+    final String[] mappings = config.split(",");
+    for (String mapping : mappings) {
+      if (!mapping.isEmpty()) {
+        final String[] parts = mapping.split(":");
+        if (parts.length != 2) {
+          LOGGER.error("Invalid collection mapping config: {}. Skipped", mapping);
+        }
+        collectionMapping.put(parts[0], parts[1]);
+      }
+    }
+    return collectionMapping;
   }
 }

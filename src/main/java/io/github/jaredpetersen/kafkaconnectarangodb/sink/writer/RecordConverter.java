@@ -42,6 +42,7 @@ public class RecordConverter {
   private final int kafkaExternalMessagesDataReadMaxTries;
   private final int kafkaExternalMessagesDataReadRetriesDeferTimeout;
   private final boolean addTimestampToArangoRecords;
+  private final Map<String, String> collectionMapping;
 
   /**
    * Construct a new RecordConverter.
@@ -50,7 +51,7 @@ public class RecordConverter {
    * @param objectMapper Utility for writing JSON to a string
    */
   public RecordConverter(final JsonConverter jsonConverter, final JsonDeserializer jsonDeserializer, final ObjectMapper objectMapper) {
-    this(jsonConverter, jsonDeserializer, objectMapper, 3, 100, false);
+    this(jsonConverter, jsonDeserializer, objectMapper, 3, 100, false, new HashMap<String, String>());
   }
 
   /**
@@ -61,17 +62,20 @@ public class RecordConverter {
    * @param kafkaExternalMessagesDataReadMaxTries Number of maximum attempts to read message body stored externally
    * @param kafkaExternalMessagesDataReadRetriesDeferTimeout Defer timeout between read attempts in ms
    * @param addTimestampToArangoRecords enable/disable additional timestamp field in value of record
+   * @param collectionMapping ArangoDb collection name configured by user
    */
   public RecordConverter(final JsonConverter jsonConverter, final JsonDeserializer jsonDeserializer, final ObjectMapper objectMapper, 
           int kafkaExternalMessagesDataReadMaxTries, 
           int kafkaExternalMessagesDataReadRetriesDeferTimeout, 
-          boolean addTimestampToArangoRecords) {
+          boolean addTimestampToArangoRecords,
+          Map<String, String> collectionMapping) {
     this.jsonConverter = jsonConverter;
     this.jsonDeserializer = jsonDeserializer;
     this.objectMapper = objectMapper;
     this.kafkaExternalMessagesDataReadMaxTries = kafkaExternalMessagesDataReadMaxTries; 
     this.kafkaExternalMessagesDataReadRetriesDeferTimeout = kafkaExternalMessagesDataReadRetriesDeferTimeout;
     this.addTimestampToArangoRecords = addTimestampToArangoRecords;
+    this.collectionMapping = collectionMapping;
   }
 
 
@@ -83,8 +87,11 @@ public class RecordConverter {
   public final ArangoRecord convert(final SinkRecord record)
      throws ExternalMessageDataMalformedURLException
   {
+    final String mapped = this.collectionMapping.get(record.topic());
+    final String collection = mapped == null ? this.getCollection(record) : mapped;
+
     return new ArangoRecord(
-      this.getCollection(record),
+      collection,
       this.getKey(record),
       this.getValue(record));
   }
