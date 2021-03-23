@@ -259,4 +259,49 @@ public class RecordConverterTest {
     Exception thrownException = assertThrows(IllegalArgumentException.class, () -> recordConverter.convert(sinkRecordStub));
     assertEquals("record value is not a single object/document", thrownException.getMessage());
   }
+
+  @Test
+  public void convertChooseCollectionName() throws ExternalMessageDataMalformedURLException {
+    // Set up stub data
+    final Struct keyStub = new Struct(this.keyStructSchema)
+        .put("Id", 45);
+    final Struct valueStub = new Struct(this.valueStructSchema)
+        .put("Name", "Henry")
+        .put("Age", 2);
+    final SinkRecord sinkRecordStub = new SinkRecord(
+        "some-prefix.table",
+        1,
+        keyStub.schema(),
+        keyStub,
+        valueStub.schema(),
+        valueStub,
+        0);
+
+    // Set up RecordConverter dependencies
+    final JsonConverter jsonConverter = new JsonConverter();
+    jsonConverter.configure(
+        Collections.singletonMap(JsonConverterConfig.SCHEMAS_ENABLE_CONFIG, "false"),
+        false);
+
+    final JsonDeserializer jsonDeserializer = new JsonDeserializer();
+    final ObjectMapper objectMapper = new ObjectMapper();
+
+    // Set up expected data
+    final ArangoRecord expectedArangoRecord = new ArangoRecord("table", "45", "{\"Name\":\"Henry\",\"Age\":2,\"_key\":\"45\"}");
+
+    // Test system under test
+    final RecordConverter recordConverter = new RecordConverter(jsonConverter, jsonDeserializer, objectMapper);
+    final ArangoRecord arangoRecord = recordConverter.convert(sinkRecordStub);
+
+    assertEquals(expectedArangoRecord, arangoRecord);
+
+    // Set up expected data
+    final ArangoRecord expectedConfiguredArangoRecord = new ArangoRecord("configured-table", "45", "{\"Name\":\"Henry\",\"Age\":2,\"_key\":\"45\"}");
+
+    // Test system under test
+    final RecordConverter configuredRecordConverter = new RecordConverter(jsonConverter, jsonDeserializer, objectMapper, 3, 100, false, "configured-table");
+    final ArangoRecord configuredArangoRecord = configuredRecordConverter.convert(sinkRecordStub);
+  
+      assertEquals(expectedConfiguredArangoRecord, configuredArangoRecord);
+  }
 }

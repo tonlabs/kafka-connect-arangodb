@@ -64,7 +64,8 @@ public class ArangoDbSinkTask extends SinkTask {
     this.recordConverter = new RecordConverter(jsonConverter, jsonDeserializer, objectMapper, 
             config.kafkaExternalMessagesDataReadMaxTries,
             config.kafkaExternalMessagesDataReadRetriesDeferTimeout,
-            config.arangoDbRecordAddTimestamp);
+            config.arangoDbRecordAddTimestamp,
+            config.arangoDbCollectionName);
     // Set up the writer
     this.writer = new Writer(database, config.arangoDbObjectUpsertFieldFilter, config.arangoDbMaxBatchSize);
   }
