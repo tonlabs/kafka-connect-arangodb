@@ -17,7 +17,6 @@ public class ArangoDbSinkConfigTest {
     originalsStub.put("arangodb.password", "password");
     originalsStub.put("arangodb.useSsl", true);
     originalsStub.put("arangodb.database.name", "kafka-connect-arangodb");
-    originalsStub.put("arangodb.database.name", "kafka-connect-arangodb");
 
     return originalsStub;
   }
