@@ -1,0 +1,10 @@
+@Library('infrastructure-jenkins-shared-library') _
+
+
+releaseServiceImage(
+   releasePrefix: "v",
+   dockerhubLogin: "TonJenDockerHub",
+   dockerImageBaseName: 'tonlabs/kafka-connect-arangodb',
+   dockerfileTestsCmd: 'echo "Ok"'
+) 
+
