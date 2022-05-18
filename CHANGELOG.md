@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2022-05-18
+### New
+- Add config parameter arangodb.insert.overwritemode = update | replace (default), 
+see https://www.arangodb.com/docs/3.9/aql/operations-insert.html#overwritemode
+
+### Changed
+- Update ArangoDB driver from 6.3.0 to 6.17.0 (latest)
+
 ## [1.0.7] - 2020-03-10
 ### Changed
 - Added support for SSL

@@ -59,6 +59,11 @@ public class ArangoDbSinkConfig extends AbstractConfig {
   private static final String ARANGODB_RECORD_ADD_TIMESTAMP_DOC = "Enable/disable putting additional field with timestamp to every record";
   public final boolean arangoDbRecordAddTimestamp;
 
+  private static final String ARANGODB_INSERT_OVERWRITEMODE = "arangodb.insert.overwritemode";
+  private static final String ARANGODB_INSERT_OVERWRITEMODE_DEFAULT = "replace";
+  private static final String ARANGODB_INSERT_OVERWRITEMODE_DOC = "Update (patch) or replace (overwrite) existing records";
+  public final String arangoInsertOverwritemode;
+
   private static final String KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES = "kafka.external-message-ref.max-retries";
   private static final int KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES_DEFAULT = 3; 
   private static final String KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES_DOC = "Set the maximum number of attempts to read data for the kafka message stored externally.";
@@ -80,6 +85,7 @@ public class ArangoDbSinkConfig extends AbstractConfig {
       .define(ARANGODB_OBJECT_UPGRADE_FIELD, Type.STRING, ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT, Importance.HIGH, ARANGODB_OBJECT_UPGRADE_FIELD_DOC)
       .define(ARANGODB_MAX_BATCH_SIZE, Type.INT, ARANGODB_MAX_BATCH_SIZE_DEFAULT,  Importance.HIGH, ARANGODB_MAX_BATCH_SIZE_DOC)
       .define(ARANGODB_RECORD_ADD_TIMESTAMP, Type.BOOLEAN, ARANGODB_RECORD_ADD_TIMESTAMP_DEFAULT, Importance.HIGH, ARANGODB_RECORD_ADD_TIMESTAMP_DOC)
+      .define(ARANGODB_INSERT_OVERWRITEMODE, Type.STRING, ARANGODB_INSERT_OVERWRITEMODE_DEFAULT, Importance.HIGH, ARANGODB_INSERT_OVERWRITEMODE_DOC)
       .define(KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES, Type.INT, KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES_DEFAULT, Importance.HIGH, KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES_DOC)
       .define(KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT, Type.INT, KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT_DEFAULT, Importance.HIGH, KAFKA_EXTERNAL_MESSAGE_DATA_READ_RETRIES_DEFER_TIMEOUT_DOC)  
       ;
@@ -103,6 +109,7 @@ public class ArangoDbSinkConfig extends AbstractConfig {
     this.arangoDbObjectUpsertFieldFilter = getString(ARANGODB_OBJECT_UPGRADE_FIELD);
     this.arangoDbMaxBatchSize = getInt(ARANGODB_MAX_BATCH_SIZE);
     this.arangoDbRecordAddTimestamp = getBoolean(ARANGODB_RECORD_ADD_TIMESTAMP);
+    this.arangoInsertOverwritemode = getString(ARANGODB_INSERT_OVERWRITEMODE);
     int kafkaExternalMessagesDataReadMaxTries = getInt(KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES);
     if (kafkaExternalMessagesDataReadMaxTries < 1) {
        LOGGER.warn(KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES + " is less than 1. Ignoring configured value and setting it to the minimum value of 1.");

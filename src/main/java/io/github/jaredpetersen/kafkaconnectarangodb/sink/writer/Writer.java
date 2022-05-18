@@ -2,15 +2,14 @@ package io.github.jaredpetersen.kafkaconnectarangodb.sink.writer;
 
 import com.arangodb.ArangoDatabase;
 import com.arangodb.model.AqlFunctionCreateOptions;
-import com.arangodb.util.MapBuilder;
 import com.arangodb.model.DocumentCreateOptions;
+import com.arangodb.model.OverwriteMode;
 import com.arangodb.entity.BaseDocument;
 import com.arangodb.model.DocumentDeleteOptions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +27,7 @@ public class Writer {
 
   private final ArangoDatabase database;
   private final String filterLatestOnField;
+  private final OverwriteMode overwriteMode;
   private final int maxBatchSize;
 
   private static final String UDF_LATEST = "" +
@@ -45,12 +45,12 @@ public class Writer {
    * Construct a new Kafka record writer for ArangoDB.
    * @param database ArangoDB database to write to.
    */
-  public Writer(final ArangoDatabase database, String condition, int maxBatchSize) {
+  public Writer(final ArangoDatabase database, String condition, int maxBatchSize, String overwriteMode) {
     this.database = database;
     this.filterLatestOnField = condition;
     this.maxBatchSize = maxBatchSize;
+    this.overwriteMode = OverwriteMode.valueOf(overwriteMode);
   }
-
   /**
    * Write Kafka records to ArangoDB.
    * @param records Records to write to ArangoDB.
@@ -171,7 +171,7 @@ public class Writer {
     this.database.collection(collection).insertDocuments(
         documentValues,
         new DocumentCreateOptions()
-            .overwrite(true)
+            .overwriteMode(this.overwriteMode)  // Default is "replace"
             .waitForSync(true)
             .silent(true));
   }
