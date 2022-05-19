@@ -2,6 +2,7 @@ package io.github.jaredpetersen.kafkaconnectarangodb.sink.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -143,5 +144,24 @@ public class ArangoDbSinkConfigTest {
         "dbserver1.mydatabase.customers", "my_customers",
         "products", "db_products"),
       config.arangoDbCollectionMapping);
+  }
+
+  @Test
+  public void configMutualExclParamsThrowsException() {
+    final Map<String, Object> originalsStub = buildConfigMap();
+    originalsStub.put("arangodb.insert.overwritemode", "update");
+    originalsStub.put("arangodb.object.upgrade", "create_lt");
+
+    final ConfigException exception = assertThrows(ConfigException.class, () -> new ArangoDbSinkConfig(originalsStub));
+    assertEquals("Parameters \"arangodb.insert.overwritemode\" and \"arangodb.object.upgrade\" are mutual exclusive",
+        exception.getMessage());
+  }
+
+  @Test
+  public void configNotMutualAreOK() {
+    final Map<String, Object> originalsStub = buildConfigMap();
+    originalsStub.put("arangodb.insert.overwritemode", "replace");
+    originalsStub.put("arangodb.object.upgrade", "create_lt");
+    assertDoesNotThrow(() -> new ArangoDbSinkConfig(originalsStub));
   }
 }

@@ -7,6 +7,7 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.config.types.Password;
+import org.apache.kafka.common.config.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,6 +111,15 @@ public class ArangoDbSinkConfig extends AbstractConfig {
     this.arangoDbMaxBatchSize = getInt(ARANGODB_MAX_BATCH_SIZE);
     this.arangoDbRecordAddTimestamp = getBoolean(ARANGODB_RECORD_ADD_TIMESTAMP);
     this.arangoInsertOverwritemode = getString(ARANGODB_INSERT_OVERWRITEMODE);
+
+    if (!this.arangoInsertOverwritemode.equals(ARANGODB_INSERT_OVERWRITEMODE_DEFAULT) && 
+        !this.arangoDbObjectUpsertFieldFilter.equals(ARANGODB_OBJECT_UPGRADE_FIELD_DEFAULT)) {
+            throw new ConfigException(String.format("Parameters \"%s\" and \"%s\" are mutual exclusive",
+                ARANGODB_INSERT_OVERWRITEMODE,
+                ARANGODB_OBJECT_UPGRADE_FIELD
+                ));
+    }
+
     int kafkaExternalMessagesDataReadMaxTries = getInt(KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES);
     if (kafkaExternalMessagesDataReadMaxTries < 1) {
        LOGGER.warn(KAFKA_EXTERNAL_MESSAGE_DATA_READ_MAX_TRIES + " is less than 1. Ignoring configured value and setting it to the minimum value of 1.");
