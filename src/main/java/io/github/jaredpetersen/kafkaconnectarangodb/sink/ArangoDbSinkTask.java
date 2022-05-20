@@ -1,6 +1,7 @@
 package io.github.jaredpetersen.kafkaconnectarangodb.sink;
 
 import com.arangodb.ArangoDB;
+import com.arangodb.DbName;
 import com.arangodb.ArangoDatabase;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.jaredpetersen.kafkaconnectarangodb.sink.config.ArangoDbSinkConfig;
@@ -12,7 +13,6 @@ import io.github.jaredpetersen.kafkaconnectarangodb.sink.errors.ExternalMessageD
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -51,7 +51,8 @@ public class ArangoDbSinkTask extends SinkTask {
         .password(config.arangoDbPassword.value())
         .useSsl(config.arangoDbUseSsl)
         .build();
-    final ArangoDatabase database = arangodb.db(config.arangoDbDatabaseName);
+    final ArangoDatabase database = arangodb.db(DbName.of(config.arangoDbDatabaseName));
+
 
     // Set up the record converter
     final JsonConverter jsonConverter = new JsonConverter();
@@ -68,7 +69,8 @@ public class ArangoDbSinkTask extends SinkTask {
             config.arangoDbRecordAddTimestamp,
             config.arangoDbCollectionMapping);
     // Set up the writer
-    this.writer = new Writer(database, config.arangoDbObjectUpsertFieldFilter, config.arangoDbMaxBatchSize);
+    this.writer = new Writer(
+            database, config.arangoDbObjectUpsertFieldFilter, config.arangoDbMaxBatchSize, config.arangoInsertOverwritemode);
   }
 
   @Override

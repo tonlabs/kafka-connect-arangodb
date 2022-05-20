@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.arangodb.ArangoCollection;
 import com.arangodb.ArangoDatabase;
+import com.arangodb.model.OverwriteMode;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -34,17 +35,16 @@ public class WriterTest {
     when(databaseMock.collection(any())).thenReturn(collectionMock);
 
     // Test system under test
-    final Writer writer = new Writer(databaseMock, null, -1);
+    final Writer writer = new Writer(databaseMock, null, -1, "replace");
     writer.write(arangoRecordStubs);
 
     verify(collectionMock).insertDocuments(
         eq(Arrays.asList("ajson", "bjson", "cjson", "djson", "ejson")),
         argThat(options -> {
-          return (options.getOverwrite() == true)
+          return (options.getOverwriteMode() == OverwriteMode.replace)
             && (options.getWaitForSync() == true)
             && (options.getSilent() == true);
         }));
-
     verify(collectionMock, never()).deleteDocuments(any());
   }
 
@@ -65,28 +65,28 @@ public class WriterTest {
     when(databaseMock.collection(any())).thenReturn(collectionMock);
 
     // Test system under test
-    final Writer writer = new Writer(databaseMock, null, -1);
+    final Writer writer = new Writer(databaseMock, null, -1, "replace");
     writer.write(arangoRecordStubs);
 
     InOrder inOrder = Mockito.inOrder(collectionMock);
     inOrder.verify(collectionMock).insertDocuments(
         eq(Arrays.asList("ajson", "bjson")),
         argThat(options -> {
-          return (options.getOverwrite() == true)
+          return (options.getOverwriteMode() == OverwriteMode.replace)
             && (options.getWaitForSync() == true)
             && (options.getSilent() == true);
         }));
     inOrder.verify(collectionMock).insertDocuments(
         eq(Arrays.asList("cjson", "djson")),
         argThat(options -> {
-          return (options.getOverwrite() == true)
+          return (options.getOverwriteMode() == OverwriteMode.replace)
             && (options.getWaitForSync() == true)
             && (options.getSilent() == true);
         }));
     inOrder.verify(collectionMock).insertDocuments(
         eq(Arrays.asList("ejson")),
         argThat(options -> {
-          return (options.getOverwrite() == true)
+          return (options.getOverwriteMode() == OverwriteMode.replace)
             && (options.getWaitForSync() == true)
             && (options.getSilent() == true);
         }));
@@ -111,7 +111,7 @@ public class WriterTest {
     when(databaseMock.collection(any())).thenReturn(collectionMock);
 
     // Test system under test
-    final Writer writer = new Writer(databaseMock, null, -1);
+    final Writer writer = new Writer(databaseMock, null, -1, "replace");
     writer.write(arangoRecordStubs);
 
     verify(collectionMock).deleteDocuments(
@@ -142,7 +142,7 @@ public class WriterTest {
     when(databaseMock.collection(any())).thenReturn(collectionMock);
 
     // Test system under test
-    final Writer writer = new Writer(databaseMock, null, -1);
+    final Writer writer = new Writer(databaseMock, null, -1, "replace");
     writer.write(arangoRecordStubs);
 
     InOrder inOrder = Mockito.inOrder(collectionMock);
@@ -190,21 +190,22 @@ public class WriterTest {
     when(databaseMock.collection(any())).thenReturn(collectionMock);
 
     // Test system under test
-    final Writer writer = new Writer(databaseMock, null, -1);
+    final Writer writer = new Writer(databaseMock, null, -1, "replace");
     writer.write(arangoRecordStubs);
 
     InOrder inOrder = Mockito.inOrder(collectionMock);
     inOrder.verify(collectionMock).insertDocuments(
         eq(Arrays.asList("ajson", "bjson")),
         argThat(options -> {
-          return (options.getOverwrite() == true)
+          return (options.getOverwriteMode() == OverwriteMode.replace)
+            && (options.getWaitForSync() == true)
             && (options.getWaitForSync() == true)
             && (options.getSilent() == true);
         }));
     inOrder.verify(collectionMock).insertDocuments(
         eq(Arrays.asList("cjson")),
         argThat(options -> {
-          return (options.getOverwrite() == true)
+          return (options.getOverwriteMode() == OverwriteMode.replace)
             && (options.getWaitForSync() == true)
             && (options.getSilent() == true);
         }));
@@ -225,7 +226,7 @@ public class WriterTest {
     inOrder.verify(collectionMock).insertDocuments(
         eq(Arrays.asList("gjson")),
         argThat(options -> {
-          return (options.getOverwrite() == true)
+          return (options.getOverwriteMode() == OverwriteMode.replace)
             && (options.getWaitForSync() == true)
             && (options.getSilent() == true);
         }));

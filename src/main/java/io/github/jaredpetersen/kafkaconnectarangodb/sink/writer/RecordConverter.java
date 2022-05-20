@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.BufferedReader;
-import java.io.BufferedInputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.lang.System;
@@ -154,6 +153,7 @@ public class RecordConverter {
       final BufferedReader inputStream = new BufferedReader(
         new InputStreamReader(url.openStream())
       );
+      @SuppressWarnings("unchecked")
       Map<String,Object> result = new ObjectMapper().readValue(inputStream, HashMap.class);
       return result;
     } catch (MalformedURLException e) {
@@ -175,7 +175,7 @@ public class RecordConverter {
         if (deferRetryMs > 0) {
           Thread.sleep(deferRetryMs);
         }
-      } catch(InterruptedException _) {
+      } catch(InterruptedException ignoredError) {
       }
       
       throw new RetriableException("IOExeption in external data", e);

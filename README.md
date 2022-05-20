@@ -81,15 +81,16 @@ In most situations, the record values that you will want to sink into ArangoDB i
 
 ## Configuration
 ### Connector Properties
-| Name                          | Description                         | Type     | Default | Importance |
-| ----------------------------- | ----------------------------------- | -------- | ------- | ---------- |
-| `arangodb.host`               | ArangoDB server host.               | string   |         | high       |
-| `arangodb.port`               | ArangoDB server host port number.   | int      |         | high       |
-| `arangodb.user`               | ArangoDB connection username.       | string   |         | high       |
-| `arangodb.password`           | ArangoDB connection password.       | password | ""      | high       |
-| `arangodb.useSsl`             | ArangoDB use SSL connection.        | boolean  | false   | high       |
-| `arangodb.database.name`      | ArangoDB database name.             | string   |         | high       |
-| `arangodb.collection.mapping` | ArangoDB collection names mapping.  | string   |         | high       |
+| Name                            | Description                         | Type     | Default | Importance |
+| --------------------------------| ----------------------------------- | -------- | ------- | ---------- |
+| `arangodb.host`                 | ArangoDB server host.               | string   |         | high       |
+| `arangodb.port`                 | ArangoDB server host port number.   | int      |         | high       |
+| `arangodb.user`                 | ArangoDB connection username.       | string   |         | high       |
+| `arangodb.password`             | ArangoDB connection password.       | password | ""      | high       |
+| `arangodb.useSsl`               | ArangoDB use SSL connection.        | boolean  | false   | high       |
+| `arangodb.database.name`        | ArangoDB database name.             | string   |         | high       |
+| `arangodb.insert.overwritemode` | update or replace existed documents | string   | replace | high       |
+| `arangodb.collection.mapping`   | ArangoDB collection names mapping.  | string   |         | high       |
 
 ### Single Message Transformations
 | Type                                                               | Description                                        |
